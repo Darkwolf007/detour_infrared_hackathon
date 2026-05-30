@@ -1,0 +1,17 @@
+.env
+*.cache
+cache/
+*.graphml
+*.osm
+_osm/
+**/_osm*/
+
+# Python virtual environment
+.venv/
+.claude/
+
+
+# Bytecode
+__pycache__/
+*.py[cod]
+*.$py.class

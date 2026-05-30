@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  margin: 0; padding: 0;
+  height: 100%; width: 100%;
+  overflow: hidden;
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+}
+
+/* ── Range slider — neo-brutalist track ── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 6px;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 0;
+  background: currentColor;
+  opacity: 0.15;
+  border: 1.5px solid currentColor;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 0;
+  background: #FFE600;
+  border: 2px solid #000;
+  margin-top: -6px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0px #000;
+}
+input[type="range"].dark-thumb::-webkit-slider-thumb {
+  border-color: #fff;
+  box-shadow: 2px 2px 0px #fff;
+}
+input[type="range"]::-moz-range-track {
+  height: 6px; background: currentColor; opacity: 0.15;
+  border: 1.5px solid currentColor;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 0;
+  background: #FFE600; border: 2px solid #000; cursor: pointer;
+}
+
+select option { background-color: inherit; color: inherit; }
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
+
+/* ── Leaflet ── */
+.leaflet-container {
+  height: 100% !important; width: 100% !important;
+  background: #1a1f35 !important;
+  font-family: 'Space Grotesk', sans-serif;
+}
+.leaflet-bar {
+  border: 2px solid rgba(255,255,255,0.15) !important;
+  border-radius: 0 !important;
+  box-shadow: 3px 3px 0px rgba(0,0,0,0.5) !important;
+}
+.leaflet-bar a {
+  background-color: #1e2540 !important;
+  color: #94a3b8 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+  transition: all 0.15s;
+}
+.leaflet-bar a:hover { background-color: #252c4a !important; color: #fff !important; }
+.leaflet-control-attribution {
+  background: rgba(22,27,46,0.9) !important;
+  color: #475569 !important; font-size: 10px !important;
+}
+/* Neo-brutalist popup — white card, black border, hard shadow */
+.leaflet-popup-content-wrapper {
+  background: #F4F4F0 !important;
+  color: #000 !important;
+  border-radius: 0 !important;
+  border: 2.5px solid #000 !important;
+  box-shadow: 4px 4px 0 #000 !important;
+  padding: 0 !important;
+}
+.leaflet-popup-content { margin: 0 !important; color: #000 !important; }
+.leaflet-popup-tip-container { display: none !important; }
+.leaflet-popup-close-button {
+  color: #000 !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  top: 3px !important; right: 5px !important;
+}
+
+@keyframes markerPulse {
+  0%   { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(227,65,30,0.6); }
+  70%  { transform: scale(1);    box-shadow: 0 0 0 8px rgba(227,65,30,0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(227,65,30,0); }
+}
+.pulse-marker-active { animation: markerPulse 2s infinite; }
+
+@keyframes fadeIn { from { opacity:0; transform:translateY(-3px); } to { opacity:1; } }
+.animate-fade-in { animation: fadeIn 0.12s ease-out both; }
