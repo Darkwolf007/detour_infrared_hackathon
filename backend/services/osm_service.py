@@ -12,8 +12,9 @@ from utils.normalise import SURFACE_PENALTY, HIGHWAY_SAFETY
 logger = logging.getLogger("thermal_router.osm_service")
 
 # ── disk cache ────────────────────────────────────────────────────────────────
-_GRAPH_CACHE_DIR = os.path.join(
-    os.path.dirname(__file__), "..", "_osm_cache"
+_GRAPH_CACHE_DIR = os.environ.get(
+    "GRAPH_CACHE_DIR",
+    os.path.join(os.path.dirname(__file__), "..", "_osm_cache"),
 )
 
 # Pre-warmed city bboxes — must match prewarm_osm.py exactly.

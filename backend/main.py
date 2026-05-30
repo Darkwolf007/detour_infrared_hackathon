@@ -15,11 +15,14 @@ logging.basicConfig(
 logger = logging.getLogger("thermal_router")
 
 from routers import cache, personas, route
+from utils.graphml_sync import sync_graphml
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("ThermalRoute API starting — SDK is LAZY, no calls until POST /route")
+    logger.info("ThermalRoute API starting — syncing graphml from R2 …")
+    sync_graphml()
+    logger.info("ThermalRoute API ready")
     yield
     logger.info("ThermalRoute API shutting down")
 
