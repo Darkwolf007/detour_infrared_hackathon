@@ -72,6 +72,11 @@ def create_app() -> FastAPI:
     async def health():
         return {"status": "ok", "service": "thermal-route-api", "version": "0.1.0"}
 
+    @app.get("/", include_in_schema=False)
+    async def root():
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/docs")
+
     return app
 
 
