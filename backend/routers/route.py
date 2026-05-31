@@ -20,6 +20,8 @@ from models.response_models import RouteResult, PoiWaypoint
 from services.cache_service import get_cached_sdk, deserialise_grids, store_sdk_cache
 from services.sdk_service import run_sdk
 from services.osm_service import get_walk_graph_cached, assign_costs, nearest_node
+from services.graph_db_service import build_graph_from_db
+
 from services.poi_service import find_poi_nodes
 from services.routing_service import (
     route_typical,
@@ -80,10 +82,15 @@ def _stage(job_id: str, text: str, pct: int) -> None:
     jobs[job_id] = {"status": "processing", "job_id": job_id, "stage": text, "progress": pct}
 
 
-def process_route_task(job_id: str, req: RouteRequest):
+def process_route_task(job_id: str, req: RouteRequest, background_tasks: BackgroundTasks):
     """
     Background worker task to orchestrate building the walking route.
     """
+    import time as _time
+    _t0 = _time.monotonic()
+    def _tick(label: str):
+        logger.info(f"[TIMING] {label}: +{_time.monotonic() - _t0:.2f}s")
+
     logger.info(f"Background task starting for job {job_id}")
     try:
         _stage(job_id, "Resolving route area", 3)
@@ -128,6 +135,7 @@ def process_route_task(job_id: str, req: RouteRequest):
         weights = apply_age_boost(weights, req.age_group)
         logger.info(f"Using resolved weights: {weights}, turns: {turn_pref}")
 
+        _tick("bbox+persona resolved")
         # 3. Retrieve microclimate grids (from Cache or SDK)
         _stage(job_id, "Checking microclimate cache", 10)
         analyses = ["utci", "wind", "solar"]
@@ -181,9 +189,22 @@ def process_route_task(job_id: str, req: RouteRequest):
                 except Exception as cache_err:
                     logger.warning(f"Cache write failed (routing continues with live SDK data): {cache_err}")
 
-        # 4. Fetch street network from OpenStreetMap (disk-cached after first download)
+        _tick("SDK / cache done")
+        # 4. Fetch street network — graphml primary (instant, in-memory), DB fallback
         _stage(job_id, "Loading street network", 82)
-        G = get_walk_graph_cached(bbox)
+        G = None
+        try:
+            G = get_walk_graph_cached(bbox)
+            _tick(f"graph loaded from graphml ({G.number_of_nodes()} nodes, {G.number_of_edges()} edges)")
+        except Exception as graphml_err:
+            logger.warning("Graphml not available (%s) — trying DB", graphml_err)
+            G = build_graph_from_db(req.city, bbox)
+            if G is None:
+                raise RuntimeError(
+                    f"No graph available for {req.city} in bbox {bbox}. "
+                    "Ensure graphml files are pre-warmed or osm_edges table is populated."
+                )
+            _tick(f"graph loaded from DB ({G.number_of_nodes()} nodes, {G.number_of_edges()} edges)")
 
         # 5. Map stops to nearest graph nodes
         stop_nodes = [nearest_node(G, stop.lat, stop.lon) for stop in req.stops]
@@ -215,15 +236,16 @@ def process_route_task(job_id: str, req: RouteRequest):
             except Exception as poi_err:
                 logger.warning(f"POI resolution failed (routing continues without): {poi_err}")
 
-        # 6. Core Raster-to-Vector Enrichment
+        # 6. Core Raster-to-Vector Enrichment (always computed at runtime)
         _stage(job_id, "Scoring route segments", 88)
+
         if is_unscored or not sdk_result:
             grids = {}
             bounds = (bbox["min_lon"], bbox["min_lat"], bbox["max_lon"], bbox["max_lat"])
             grid_bounds = None
             veg_features = []
         else:
-            grids = {k: v for k, v in sdk_result.items() if isinstance(v, np.ndarray)}
+            grids = {gk: gv for gk, gv in sdk_result.items() if isinstance(gv, np.ndarray)}
             bounds = sdk_result["bounds"]
             grid_bounds = {
                 key: sdk_result[f"{key}_bounds"]
@@ -233,9 +255,11 @@ def process_route_task(job_id: str, req: RouteRequest):
             veg_features = sdk_result.get("vegetation_features") or []
 
         edge_scores = enrich_all_edges(G, grids, bounds, veg_features, persona_analyses, grid_bounds=grid_bounds)
+        _tick(f"enrich_all_edges done ({G.number_of_edges()} edges)")
 
         # 7. Apply weight vector to edge costs
         G = assign_costs(G, edge_scores, weights)
+        _tick("assign_costs done")
 
         # 8. Compute routing path
         _stage(job_id, "Computing optimal path", 94)
@@ -249,6 +273,7 @@ def process_route_task(job_id: str, req: RouteRequest):
         else:
             path = route_typical(G, stop_nodes[0], stop_nodes[1])
 
+        _tick("routing done")
         # 9. Format output models
         dist = get_path_distance(G, path)
         logger.info(f"Path: {len(path)} nodes, {dist:.0f} m")
@@ -319,7 +344,7 @@ def process_route_task(job_id: str, req: RouteRequest):
             poi_waypoints=poi_waypoint_models,
         )
         jobs[job_id] = result.dict()
-        
+        _tick("TOTAL — job complete")
         # 10. Store log in route_requests table
         try:
             sb = get_supabase()
@@ -355,7 +380,7 @@ def create_route(req: RouteRequest, background_tasks: BackgroundTasks):
     job_id = str(uuid.uuid4())
     jobs[job_id] = {"status": "processing", "job_id": job_id}
     
-    background_tasks.add_task(process_route_task, job_id, req)
+    background_tasks.add_task(process_route_task, job_id, req, background_tasks)
     
     return {
         "status": "processing",

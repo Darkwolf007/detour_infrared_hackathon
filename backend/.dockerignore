@@ -1,0 +1,36 @@
+# Version control
+.git
+.gitignore
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.$py.class
+.pytest_cache/
+
+# Large graphml files (synced from R2 at startup, not baked into image)
+_osm_cache/
+_osm_input/
+*.graphml
+*.osm
+
+# IDE / editor
+.claude/
+.agents/
+.vscode/
+.idea/
+
+# Local env (secrets go into Render dashboard)
+.env
+
+# Logs and temp files
+*.log
+mem_log*.txt
+cache/
+
+# Dev scripts not needed in production
+monitor_mem.py
+monitor_mem.ps1
+estimate_city_cache.py
+test_*.py

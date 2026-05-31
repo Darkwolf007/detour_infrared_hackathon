@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useRouterStore } from '../store/routerStore';
 import type { RouteResult, RouteRequest } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8001/api/v1';
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000/api/v1';
 
 export const useRoute = () => {
   const {
@@ -40,7 +40,7 @@ export const useRoute = () => {
     refetchInterval: (query) => {
       const data = query.state.data;
       if (data?.status === 'done' || data?.status === 'error') return false;
-      return 2000;
+      return 500;
     },
   });
 

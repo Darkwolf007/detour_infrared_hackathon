@@ -89,14 +89,41 @@ This downloads graphs from Overpass API (~5 min). They are saved to `_osm_cache/
 
 ---
 
-## Backend — Render (alternative)
+## Backend — Render with Docker (recommended)
 
-1. Go to [render.com](https://render.com) → New Web Service → GitHub repo
-2. Root directory: `thermal-router/backend`
-3. Build command: `pip install -r requirements.txt`
-4. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-5. Add the same environment variables as Railway above
-6. Free tier sleeps after 15 min inactivity (cold starts ~30s) — upgrade to $7/month to keep it awake
+The backend is fully Dockerized with a multi-stage build.
+
+### Quick Deploy
+
+1. Go to [render.com](https://render.com) → **New +** → **Web Service** → connect GitHub repo
+2. Render auto-detects `render.yaml` and creates the service
+3. Set **secret** environment variables in the Render dashboard:
+   ```
+   INFRARED_API_KEY=your_key
+   SUPABASE_URL=https://xxxx.supabase.co
+   SUPABASE_KEY=your_key
+   GEMINI_API_KEY=your_key
+   R2_ACCOUNT_ID=your_id
+   R2_ACCESS_KEY=your_key
+   R2_SECRET_KEY=your_key
+   ```
+4. Deploy — Render builds the Docker image and starts the service
+
+### How it works
+
+- `render.yaml` defines the service as Docker, pointing to `backend/Dockerfile`
+- On startup the app syncs graphml files from Cloudflare R2 (~500 MB, ~60s)
+- Then preloads them into memory for instant graph clipping
+- Single worker (graphml preload is ~2 GB RAM) — use Starter plan ($7/mo) minimum
+- Health check at `/health` with 180s start-period to allow sync + preload
+
+### Local Docker test
+
+```bash
+cd backend
+docker build -t detour-api .
+docker run --env-file .env -p 8000:10000 detour-api
+```
 
 ---
 

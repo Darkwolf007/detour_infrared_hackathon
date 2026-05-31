@@ -1,0 +1,37 @@
+# render.yaml — Infrastructure-as-code for Render deployment
+# Docs: https://docs.render.com/infrastructure-as-code
+
+services:
+  - type: web
+    name: detour-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: frankfurt           # EU — close to Infrared API
+    plan: starter              # $7/mo — always-on, no cold starts
+    healthCheckPath: /health
+    envVars:
+      - key: INFRARED_API_KEY
+        sync: false            # set manually in Render dashboard
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY
+        sync: false
+      - key: R2_SECRET_KEY
+        sync: false
+      - key: R2_BUCKET
+        value: graphml-cache
+      - key: CORS_ORIGINS
+        value: https://detour-infrared-hackathon-52rf.vercel.app
+      - key: SKIP_SDK
+        value: "false"
+      - key: SDK_TIMEOUT
+        value: "180"
+      - key: SKIP_PRELOAD
+        value: "false"

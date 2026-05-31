@@ -88,6 +88,21 @@ def _find_city_superset(bbox: dict) -> str | None:
     return None
 
 
+def preload_graphs() -> None:
+    """Eagerly load all pre-warmed city graphs into _LOADED_GRAPHS at startup."""
+    for city, bbox in _CITY_BBOXES.items():
+        path = _graph_cache_path(bbox)
+        if not os.path.exists(path):
+            logger.warning(f"Preload skipped for {city} — graphml not found at {path}")
+            continue
+        if path in _LOADED_GRAPHS:
+            continue
+        logger.info(f"Preloading OSM graph for {city} ({path}) …")
+        G = ox.load_graphml(path)
+        _LOADED_GRAPHS[path] = G
+        logger.info(f"Preloaded {city}: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+
+
 def get_walk_graph_cached(bbox: dict) -> nx.MultiGraph:
     """
     Return a pedestrian walk graph for bbox from pre-warmed graphml files only.
@@ -119,12 +134,12 @@ def get_walk_graph_cached(bbox: dict) -> nx.MultiGraph:
             ys = [d["y"] for _, d in G_city.nodes(data=True)]
             logger.info(f"Graphml extent: lon {min(xs):.4f}–{max(xs):.4f}, lat {min(ys):.4f}–{max(ys):.4f} ({G_city.number_of_nodes()} nodes)")
             _LOADED_GRAPHS[city_path] = G_city
-        # truncate_graph_bbox mutates the graph; work on a copy to preserve the cached original
-        G = ox.truncate.truncate_graph_bbox(
-            G_city.copy(),
-            (bbox["min_lon"], bbox["min_lat"], bbox["max_lon"], bbox["max_lat"]),
-        )
-        G = ox.convert.to_undirected(G)
+        nodes_in_bbox = [
+            n for n, d in G_city.nodes(data=True)
+            if bbox["min_lat"] <= d["y"] <= bbox["max_lat"]
+            and bbox["min_lon"] <= d["x"] <= bbox["max_lon"]
+        ]
+        G = ox.convert.to_undirected(G_city.subgraph(nodes_in_bbox).copy())
         return _largest_component(G)
 
     raise RuntimeError(

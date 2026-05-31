@@ -209,7 +209,7 @@ export const Sidebar: React.FC = () => {
     if (!poiQuery.trim()) return;
     setInferring(true);
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8001/api/v1';
+      const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000/api/v1';
       const res = await fetch(`${API_BASE}/personas/custom`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description: poiQuery.trim(), city }),
@@ -260,7 +260,7 @@ export const Sidebar: React.FC = () => {
         className="flex-1 flex flex-col min-h-0" style={{ overflow: 'hidden' }}>
 
         {/* form sections — fills height, no scroll */}
-        <div className="flex-1 flex flex-col justify-between px-2 py-2 min-h-0" style={{ overflow: 'hidden' }}>
+        <div className="flex-1 flex flex-col gap-4 px-2 py-4 min-h-0" style={{ overflow: 'hidden' }}>
 
           {/* ── CITY ──────────────────────────────────────────────────── */}
           <Block t={T} className="px-2 py-1.5">

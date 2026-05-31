@@ -29,7 +29,7 @@ def _utci_colour(value: float) -> tuple[int, int, int, int]:
 
 def utci_grid_to_png(utci_grid: np.ndarray, bounds: tuple, max_size: int = 256) -> tuple[str, list]:
     """Render UTCI grid as base64 PNG. Returns (b64_str, [[minLat,minLon],[maxLat,maxLon]])."""
-    return _grid_to_png(utci_grid, bounds, _utci_colour, max_size)
+    return _grid_to_png(utci_grid, bounds, _utci_colour, max_size, grid_type="utci")
 
 
 def _wind_colour(value: float) -> tuple[int, int, int, int]:
@@ -56,15 +56,63 @@ def _solar_colour(value: float) -> tuple[int, int, int, int]:
     return     (239,  68,  68, 165)   # red    – very high
 
 
+def _utci_rgba_vectorised(g: np.ndarray) -> np.ndarray:
+    score = np.clip((g - 26.0) / 20.0, 0.0, 1.0)
+    rgba = np.zeros((*g.shape, 4), dtype=np.uint8)
+    # green / amber / red / purple bands
+    rgba[score < 0.3]  = ( 34, 197,  94, 150)
+    rgba[score < 0.6]  = (245, 158,  11, 160)   # overwrites nothing — bands are exclusive via cumulative
+    rgba[score < 0.8]  = (239,  68,  68, 170)
+    rgba[score >= 0.8] = (124,  58, 237, 180)
+    # re-apply in correct order (each threshold overwrites the previous assignment)
+    rgba[(score >= 0.0) & (score < 0.3)] = ( 34, 197,  94, 150)
+    rgba[(score >= 0.3) & (score < 0.6)] = (245, 158,  11, 160)
+    rgba[(score >= 0.6) & (score < 0.8)] = (239,  68,  68, 170)
+    rgba[score >= 0.8]                   = (124,  58, 237, 180)
+    rgba[np.isnan(g)] = 0
+    return rgba
+
+
+def _wind_rgba_vectorised(g: np.ndarray) -> np.ndarray:
+    norm = np.clip(g / 12.0, 0.0, 1.0)
+    rgba = np.zeros((*g.shape, 4), dtype=np.uint8)
+    rgba[(norm >= 0.0)  & (norm < 0.25)] = ( 20, 184, 166, 130)
+    rgba[(norm >= 0.25) & (norm < 0.55)] = ( 59, 130, 246, 145)
+    rgba[(norm >= 0.55) & (norm < 0.78)] = (245, 158,  11, 155)
+    rgba[norm >= 0.78]                   = (239,  68,  68, 170)
+    rgba[np.isnan(g)] = 0
+    return rgba
+
+
+def _solar_rgba_vectorised(g: np.ndarray) -> np.ndarray:
+    norm = np.clip(g / 600.0, 0.0, 1.0)
+    rgba = np.zeros((*g.shape, 4), dtype=np.uint8)
+    rgba[(norm >= 0.0)  & (norm < 0.25)] = ( 99, 102, 241, 120)
+    rgba[(norm >= 0.25) & (norm < 0.55)] = (250, 204,  21, 135)
+    rgba[(norm >= 0.55) & (norm < 0.78)] = (249, 115,  22, 150)
+    rgba[norm >= 0.78]                   = (239,  68,  68, 165)
+    rgba[np.isnan(g)] = 0
+    return rgba
+
+
+# Maps each grid type to its vectorised colouring function
+_VECTORISED_FN = {
+    "utci":  _utci_rgba_vectorised,
+    "wind":  _wind_rgba_vectorised,
+    "solar": _solar_rgba_vectorised,
+}
+
+
 def _grid_to_png(
     grid: np.ndarray,
     bounds: tuple,
     colour_fn,
     max_size: int = 256,
+    grid_type: str = "",
 ) -> tuple[str, list]:
     """
     Generic raster-to-PNG helper.  Flips the grid north-up (SDK row 0 = south),
-    applies `colour_fn(value) → (R,G,B,A)`, and returns (base64_str, leaflet_bounds).
+    applies colour mapping via vectorised numpy ops, and returns (base64_str, leaflet_bounds).
     """
     from PIL import Image
 
@@ -79,15 +127,20 @@ def _grid_to_png(
         sh = max(1, h // max(1, int(h * scale)))
         sw = max(1, w // max(1, int(w * scale)))
         g = g[::sh, ::sw]
-        h, w = g.shape
 
     g = np.flipud(g)  # SDK row 0 = south; flip so row 0 = north for Leaflet
 
-    rgba = np.zeros((h, w, 4), dtype=np.uint8)
-    for r in range(h):
-        for c in range(w):
-            v = float(g[r, c])
-            rgba[r, c] = (0, 0, 0, 0) if np.isnan(v) else colour_fn(v)
+    vec_fn = _VECTORISED_FN.get(grid_type)
+    if vec_fn is not None:
+        rgba = vec_fn(g)
+    else:
+        # Fallback: scalar loop for unknown grid types
+        h2, w2 = g.shape
+        rgba = np.zeros((h2, w2, 4), dtype=np.uint8)
+        for r in range(h2):
+            for c in range(w2):
+                v = float(g[r, c])
+                rgba[r, c] = (0, 0, 0, 0) if np.isnan(v) else colour_fn(v)
 
     img = Image.fromarray(rgba, mode="RGBA")
     buf = io.BytesIO()
@@ -99,11 +152,11 @@ def _grid_to_png(
 
 
 def wind_grid_to_png(wind_grid: np.ndarray, bounds: tuple, max_size: int = 256) -> tuple[str, list]:
-    return _grid_to_png(wind_grid, bounds, _wind_colour, max_size)
+    return _grid_to_png(wind_grid, bounds, _wind_colour, max_size, grid_type="wind")
 
 
 def solar_grid_to_png(solar_grid: np.ndarray, bounds: tuple, max_size: int = 256) -> tuple[str, list]:
-    return _grid_to_png(solar_grid, bounds, _solar_colour, max_size)
+    return _grid_to_png(solar_grid, bounds, _solar_colour, max_size, grid_type="solar")
 
 
 _MAX_NETWORK_FEATURES = 500

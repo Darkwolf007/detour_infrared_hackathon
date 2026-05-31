@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import type { Persona } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8001/api/v1';
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000/api/v1';
 
 export const usePersonas = (citySlug: string) => {
   return useQuery<Persona[]>({

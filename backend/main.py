@@ -16,12 +16,26 @@ logger = logging.getLogger("thermal_router")
 
 from routers import cache, personas, route
 from utils.graphml_sync import sync_graphml
+from services.osm_service import preload_graphs
+
+# Set SKIP_PRELOAD=true once load_osm_to_supabase.py has populated all 3 cities.
+# This disables R2 graphml sync + in-memory preloading, saving ~2 GB RAM and
+# removing the 30-60s startup delay. The graphml fallback path in route.py
+# still works on-demand (loads from disk) if Supabase is unreachable.
+_SKIP_PRELOAD = os.getenv("SKIP_PRELOAD", "false").lower() == "true"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("ThermalRoute API starting — syncing graphml from R2 …")
-    sync_graphml()
+    import asyncio
+    if _SKIP_PRELOAD:
+        logger.info("ThermalRoute API starting — DB graph mode (SKIP_PRELOAD=true, no graphml sync)")
+    else:
+        logger.info("ThermalRoute API starting — syncing graphml from R2 …")
+        sync_graphml()
+        logger.info("Pre-loading city OSM graphs …")
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, preload_graphs)
     logger.info("ThermalRoute API ready")
     yield
     logger.info("ThermalRoute API shutting down")
