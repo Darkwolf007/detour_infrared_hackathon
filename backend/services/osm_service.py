@@ -3,6 +3,7 @@ import os
 import logging
 import osmnx as ox
 import networkx as nx
+import numpy as np
 from shapely.geometry import Point, LineString
 from shapely.strtree import STRtree
 from typing import Optional
@@ -114,6 +115,9 @@ def get_walk_graph_cached(bbox: dict) -> nx.MultiGraph:
         else:
             logger.info("OSM graph cache HIT (city superset) — loading from disk and clipping to route bbox")
             G_city = ox.load_graphml(city_path)
+            xs = [d["x"] for _, d in G_city.nodes(data=True)]
+            ys = [d["y"] for _, d in G_city.nodes(data=True)]
+            logger.info(f"Graphml extent: lon {min(xs):.4f}–{max(xs):.4f}, lat {min(ys):.4f}–{max(ys):.4f} ({G_city.number_of_nodes()} nodes)")
             _LOADED_GRAPHS[city_path] = G_city
         # truncate_graph_bbox mutates the graph; work on a copy to preserve the cached original
         G = ox.truncate.truncate_graph_bbox(
@@ -244,12 +248,17 @@ def assign_costs(G: nx.MultiGraph, edge_scores: dict, weights: dict) -> nx.Multi
 
 def nearest_node(G: nx.MultiGraph, lat: float, lon: float) -> int:
     """
-    Lookup nearest node ID in graph G for a given lat/lon coordinate.
-    Falls back to a projected graph if CRS metadata is absent (graphml load edge case).
+    Return the nearest graph node to (lat, lon) using a vectorised haversine-approximation
+    (Euclidean in degrees with cos-lat longitude correction).  Bypasses osmnx/scipy so
+    results are consistent regardless of whether scipy is installed.
     """
-    try:
-        return int(ox.distance.nearest_nodes(G, X=lon, Y=lat))
-    except ImportError:
-        # Graph loaded from disk may lack CRS — project to UTM for the lookup
-        G_proj = ox.projection.project_graph(G)
-        return int(ox.distance.nearest_nodes(G_proj, X=lon, Y=lat))
+    nodes = list(G.nodes(data=True))
+    ids   = np.array([n        for n, _    in nodes], dtype=np.int64)
+    ys    = np.array([d["y"]   for _, d    in nodes])   # latitude
+    xs    = np.array([d["x"]   for _, d    in nodes])   # longitude
+    cos_lat = np.cos(np.radians(lat))
+    dists = (ys - lat) ** 2 + ((xs - lon) * cos_lat) ** 2
+    nid = int(ids[np.argmin(dists)])
+    nd = G.nodes[nid]
+    logger.info(f"nearest_node query=({lat:.5f},{lon:.5f}) → node {nid} at ({nd['y']:.5f},{nd['x']:.5f})")
+    return nid

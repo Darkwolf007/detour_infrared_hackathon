@@ -47,12 +47,7 @@ def _r2_client():
 
 def main() -> None:
     client = _r2_client()
-
-    # Create bucket if it doesn't exist
-    existing = [b["Name"] for b in client.list_buckets().get("Buckets", [])]
-    if BUCKET not in existing:
-        client.create_bucket(Bucket=BUCKET)
-        logger.info(f"Created R2 bucket '{BUCKET}'")
+    logger.info(f"Uploading to R2 bucket '{BUCKET}' …")
 
     for city, bbox in _CITY_BBOXES.items():
         local_path = _graph_cache_path(bbox)

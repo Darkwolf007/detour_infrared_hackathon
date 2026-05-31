@@ -48,50 +48,32 @@ CITY_DEFAULTS = {
     "chennai": (13.0827, 80.2707)
 }
 
-# Fixed city-level analysis bboxes for the SDK.
-# All routes within a city share ONE cached grid per time_slot, so users never
-# re-burn tokens for a second route in the same area.
-# Sized to cover typical demo routes; routes outside these bounds fall back to
-# the per-route bbox (rare edge case).
-_SDK_ANALYSIS_BBOXES = {
-    "barcelona": {
-        # Covers: Placa de Catalunya, Las Ramblas, Gothic Quarter, Arc de Triomf
-        "min_lat": 41.374, "max_lat": 41.404,
-        "min_lon": 2.148,  "max_lon": 2.198,
-    },
-    "dubai": {
-        # Covers: DIFC, Downtown Dubai, Burj Khalifa, Dubai Mall area
-        "min_lat": 25.182, "max_lat": 25.220,
-        "min_lon": 55.256, "max_lon": 55.308,
-    },
-    "chennai": {
-        # Covers: Nungambakkam, Mylapore, Adyar areas
-        "min_lat": 13.052, "max_lat": 13.098,
-        "min_lon": 80.248, "max_lon": 80.296,
-    },
-}
+# 0.016° grid cell → ~35-49 SDK tiles at 256 m step across all three cities:
+#   Barcelona (41°N): 1.78 km × 1.34 km → 7×5 = 35 tiles
+#   Dubai     (25°N): 1.78 km × 1.61 km → 7×6 = 42 tiles
+#   Chennai   (13°N): 1.78 km × 1.73 km → 7×7 = 49 tiles
+# Routes whose centres snap to the same cell share one SDK cache entry.
+_SDK_GRID_DEG = 0.016
 
 
 def _sdk_bbox_for(city: str, route_bbox: dict) -> dict:
     """
-    Return the canonical city-level SDK analysis bbox if the route is contained
-    within it; otherwise fall back to the route bbox so the SDK covers the full
-    route area regardless of distance from city centre.
+    Snap the route centre to a 0.016° grid and return the fixed cell bbox.
+    Any two routes whose midpoints lie in the same cell reuse the same cache entry.
     """
-    city_sdk = _SDK_ANALYSIS_BBOXES.get(city.lower())
-    if city_sdk is None:
-        return route_bbox
-    # Use city bbox only when the route is fully inside it
-    if (city_sdk["min_lat"] <= route_bbox["min_lat"] and
-            city_sdk["max_lat"] >= route_bbox["max_lat"] and
-            city_sdk["min_lon"] <= route_bbox["min_lon"] and
-            city_sdk["max_lon"] >= route_bbox["max_lon"]):
-        return city_sdk
-    # Route extends outside the city bbox — fall back to route bbox
-    logger.info(
-        f"Route bbox extends outside city SDK bbox for {city} — using per-route bbox"
-    )
-    return route_bbox
+    center_lat = (route_bbox["min_lat"] + route_bbox["max_lat"]) / 2
+    center_lon = (route_bbox["min_lon"] + route_bbox["max_lon"]) / 2
+
+    snapped_lat = round(center_lat / _SDK_GRID_DEG) * _SDK_GRID_DEG
+    snapped_lon = round(center_lon / _SDK_GRID_DEG) * _SDK_GRID_DEG
+
+    half = _SDK_GRID_DEG / 2
+    return {
+        "min_lat": round(snapped_lat - half, 6),
+        "max_lat": round(snapped_lat + half, 6),
+        "min_lon": round(snapped_lon - half, 6),
+        "max_lon": round(snapped_lon + half, 6),
+    }
 
 def _stage(job_id: str, text: str, pct: int) -> None:
     """Push a progress update into the in-memory jobs store."""
@@ -205,6 +187,13 @@ def process_route_task(job_id: str, req: RouteRequest):
 
         # 5. Map stops to nearest graph nodes
         stop_nodes = [nearest_node(G, stop.lat, stop.lon) for stop in req.stops]
+        logger.info(f"Stop nodes: {stop_nodes} (unique: {len(set(stop_nodes))})")
+
+        if req.route_type != "loop" and len(set(stop_nodes)) == 1:
+            raise ValueError(
+                "Both stops resolved to the same street node — they may be on the same "
+                "intersection or too close together. Please choose stops that are further apart."
+            )
 
         # 5b. Resolve POI waypoints from the natural-language prompt (if provided).
         poi_waypoint_models: list[PoiWaypoint] = []
@@ -262,6 +251,7 @@ def process_route_task(job_id: str, req: RouteRequest):
 
         # 9. Format output models
         dist = get_path_distance(G, path)
+        logger.info(f"Path: {len(path)} nodes, {dist:.0f} m")
         route_geojson = path_to_geojson(G, path)
         edge_scores_list = path_to_edge_scores(G, path, edge_scores)
 

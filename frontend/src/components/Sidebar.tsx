@@ -209,7 +209,8 @@ export const Sidebar: React.FC = () => {
     if (!poiQuery.trim()) return;
     setInferring(true);
     try {
-      const res = await fetch('http://localhost:8001/api/v1/personas/custom', {
+      const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8001/api/v1';
+      const res = await fetch(`${API_BASE}/personas/custom`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description: poiQuery.trim(), city }),
       });
