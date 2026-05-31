@@ -45,8 +45,8 @@ RUN mkdir -p /app/_osm_cache && chown -R appuser:appuser /app
 
 USER appuser
 
-# Render injects PORT env var; default to 10000
-ENV PORT=10000
+# Render injects PORT env var; default to 7860
+ENV PORT=7860
 EXPOSE ${PORT}
 
 # Health check — start-period is long to allow R2 graphml sync + preload
