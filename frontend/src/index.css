@@ -23,7 +23,7 @@ input[type="range"]::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 0;
   background: currentColor;
-  opacity: 0.15;
+  opacity: 0.4;
   border: 1.5px solid currentColor;
 }
 input[type="range"]::-webkit-slider-thumb {
@@ -41,7 +41,7 @@ input[type="range"].dark-thumb::-webkit-slider-thumb {
   box-shadow: 2px 2px 0px #fff;
 }
 input[type="range"]::-moz-range-track {
-  height: 6px; background: currentColor; opacity: 0.15;
+  height: 6px; background: currentColor; opacity: 0.4;
   border: 1.5px solid currentColor;
 }
 input[type="range"]::-moz-range-thumb {

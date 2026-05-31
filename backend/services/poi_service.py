@@ -6,6 +6,8 @@ import logging
 import networkx as nx
 import osmnx as ox
 
+from services.osm_service import nearest_node
+
 logger = logging.getLogger("thermal_router.poi_service")
 
 # Display emoji for each OSM amenity / shop / leisure type
@@ -158,7 +160,11 @@ def find_poi_nodes(G: nx.MultiGraph, bbox: dict, poi_query: str) -> list[dict]:
             for _, row in gdf.head(5).iterrows():
                 try:
                     centroid = row.geometry.centroid
-                    node_id = int(ox.distance.nearest_nodes(G, X=centroid.x, Y=centroid.y))
+                    # Use the project's vectorised haversine nearest-node finder.
+                    # ox.distance.nearest_nodes requires graph['crs'] + scikit-learn,
+                    # neither of which is guaranteed here (DB-built graphs have no crs,
+                    # sklearn is not installed) — it would raise and silently drop the POI.
+                    node_id = nearest_node(G, lat=centroid.y, lon=centroid.x)
                     node_data = G.nodes[node_id]
                     poi_name = str(row.get("name", "")).strip() or _type_for(tags).replace("_", " ").title()
                     results.append({

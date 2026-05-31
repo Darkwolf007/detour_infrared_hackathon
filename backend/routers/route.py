@@ -217,8 +217,10 @@ def process_route_task(job_id: str, req: RouteRequest, background_tasks: Backgro
             )
 
         # 5b. Resolve POI waypoints from the natural-language prompt (if provided).
+        #     Works for A→B / multi (insert between start and end) AND loop
+        #     (insert between start and a return to start).
         poi_waypoint_models: list[PoiWaypoint] = []
-        if req.poi_query and req.poi_query.strip() and len(stop_nodes) >= 2:
+        if req.poi_query and req.poi_query.strip() and stop_nodes:
             _stage(job_id, "Finding POIs on your route", 84)
             try:
                 poi_data = find_poi_nodes(G, bbox, req.poi_query)
@@ -229,7 +231,11 @@ def process_route_task(job_id: str, req: RouteRequest, background_tasks: Backgro
                                     poi_type=p["poi_type"], emoji=p["emoji"])
                         for p in poi_data
                     ]
-                    stop_nodes = [stop_nodes[0]] + poi_nodes + [stop_nodes[-1]]
+                    if req.route_type == "loop":
+                        # start → POIs → back to start (closed loop through the POIs)
+                        stop_nodes = [stop_nodes[0]] + poi_nodes + [stop_nodes[0]]
+                    else:
+                        stop_nodes = [stop_nodes[0]] + poi_nodes + [stop_nodes[-1]]
                     logger.info(f"Inserted {len(poi_nodes)} POI waypoint(s): {[p['name'] for p in poi_data]}")
                 else:
                     logger.info("No POI waypoints resolved from prompt")

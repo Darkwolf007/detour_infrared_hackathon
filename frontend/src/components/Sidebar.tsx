@@ -437,7 +437,7 @@ export const Sidebar: React.FC = () => {
             <div className="space-y-0.5">
               {SLIDER_META.map(s => (
                 <div key={s.id} className="flex items-center gap-2">
-                  <span className="text-[9px] font-semibold w-14 shrink-0" style={{ color: T.mu }}>{s.label}</span>
+                  <span className="text-[9px] font-bold w-14 shrink-0" style={{ color: T.tx }}>{s.label}</span>
                   <input type="range" min="0" max="10" value={sliderVals[s.id]}
                     onChange={e => handleSlider(s.id, +e.target.value)}
                     className={`flex-1 cursor-pointer ${dark ? 'dark-thumb' : ''}`}
