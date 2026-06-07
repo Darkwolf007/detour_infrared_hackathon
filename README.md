@@ -10,6 +10,8 @@ pinned: false
 
 ThermalRoute is a climate-responsive outdoor pathfinder designed to navigate pedestrians through cities by prioritizing thermal comfort, shading, wind shielding, and natural tree coverage, rather than just geometric distance. 
 
+![me](https://github.com/Darkwolf007/detour_infrared_hackathon/blob/main/detour.gif)
+
 Built on top of the **Infrared SDK**, **OSMnx**, and **FastAPI**, it allows users in Barcelona, Dubai, and Chennai to plan walking routes tailored specifically to their age, activity, and climate preferences.
 
 ---
