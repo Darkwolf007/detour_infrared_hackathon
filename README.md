@@ -6,9 +6,9 @@ colorTo: green
 sdk: docker
 pinned: false
 ---
-# ThermalRoute — Microclimate Pedestrian Navigator
+# Detour — Personalized route planner
 
-ThermalRoute is a climate-responsive outdoor pathfinder designed to navigate pedestrians through cities by prioritizing thermal comfort, shading, wind shielding, and natural tree coverage, rather than just geometric distance. 
+Detour is a climate-responsive outdoor pathfinder designed to navigate pedestrians through cities by prioritizing thermal comfort, shading, wind shielding, and natural tree coverage, rather than just geometric distance. 
 
 ![me](https://github.com/Darkwolf007/detour_infrared_hackathon/blob/main/detour.gif)
 
